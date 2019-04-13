@@ -20,11 +20,13 @@ app.use(cookieParser());
 // app.use(express.static(path.join(__dirname, 'public')));
 
 // app.use('/', indexRouter);
-app.use('/users', usersRouter);
-app.use('/admin', adminRouter);
-app.use('/categories', categoriesRouter);
-app.use('/books', booksRouter);
-app.use('/authors', authorsRouter);
+
+
+// app.use('/users', usersRouter);
+// app.use('/admin', adminRouter);
+// app.use('/categories', categoriesRouter);
+// app.use('/books', booksRouter);
+// app.use('/authors', authorsRouter);
 
 
 module.exports = app;
