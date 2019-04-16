@@ -19,7 +19,14 @@ const userSchema = new mongoose.Schema({
         minlength: 2
     },
     photo: {
-        type: String
+        url: {
+            type: String,
+            // required: true
+        },
+        encoding: {
+            type: String,
+            // required: true
+        }
     },
     email: {
         type: String,
@@ -65,4 +72,4 @@ userSchema.plugin(mongooseHidden, { hidden: { _id: false } }); //to send user id
 const model = mongoose.model('users', userSchema);
 module.exports = model
 
-// model.create({ name: 'sara', email: 'sara@gmail.com', password: "abc_ABC%123" });
+// model.create({ name: 'sfdfara', email: 'sarsdfsda@gmail.com', password: "abc_ABC%123" });
