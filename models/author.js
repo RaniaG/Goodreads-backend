@@ -12,14 +12,15 @@ var authorSchema = new Schema({
         type: Date,
     },
     categoryId: {
-        type: Number,
+        type: mongoose.Schema.Types.ObjectId,
         required: true,
-        unique: true
+        ref: 'category'
     },
     dateOfCreation: {
         type: Date,
         default: Date.now
     },
+    usersRatings: [Number],
     rating: {
         type: Number,
         max: 5
