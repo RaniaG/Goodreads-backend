@@ -1,7 +1,7 @@
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 
-var autherSchema = new Schema({
+var authorSchema = new Schema({
     name: {
         type: String,
         required: true,
@@ -25,3 +25,4 @@ var autherSchema = new Schema({
         max: 5
     }
 });
+module.exports = mongoose.model('author', authorSchema);

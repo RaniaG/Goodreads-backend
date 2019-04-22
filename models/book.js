@@ -9,12 +9,14 @@ const bookSchema = new mongoose.Schema({
         max: 20
     },
     authorId: {
-        type: Number,
+        type: mongoose.Schema.Types.ObjectId,
         required: true,
+        ref: 'author'
     },
     categoryId: {
-        type: Number,
-        required: true,
+        type: mongoose.Schema.Types.ObjectId,
+        // required: true,
+        ref: 'category'
     },
     creationDate: {
         type: Date,
@@ -24,14 +26,13 @@ const bookSchema = new mongoose.Schema({
         type: Date,
         // required: true
     },
-    status: {
-        default: 0,
-    },
-    rating: {
-        default: 0,
+    userInfo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'userBooks'
     }
+    , usersRatings: [Number]
 })
 
-const bookModel = mongoose.model("books" , bookSchema);
+const bookModel = mongoose.model("books", bookSchema);
 
 module.exports = bookModel;

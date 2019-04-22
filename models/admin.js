@@ -46,11 +46,6 @@ adminSchema.method('generateToken', function () {
     return signPromise({ id: this._id }, secretKey, { expiresIn: '10h' })
 });
 
-//'this' is adminModel
-userSchema.static('verifyToken', async function (token) {
-    const user = await jwtVerifyPromise(token, jwtKey);
-    return this.findById(user.id);
-})
 
 adminSchema.static('verifyToken', async function (token) {
     const decoded = await verifyToken(token, secretKey);
@@ -58,5 +53,5 @@ adminSchema.static('verifyToken', async function (token) {
     return this.findById(id);
 })
 
-const adminModel = mongoose.model('Category', adminSchema);
+const adminModel = mongoose.model('admin', adminSchema);
 module.exports = adminModel;
