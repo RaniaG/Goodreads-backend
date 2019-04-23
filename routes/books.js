@@ -5,7 +5,7 @@ const createError = require('http-errors');
 const BooksModel = require('../models/book');
 const UserBooksModel = require('../models/userBooks');
 
-require('../models/test');
+// require('../models/test');
 
 
 function getBooksQuery(filters) {
@@ -36,7 +36,7 @@ router.get('/', async function (req, res, next) {
             .populate('author')
             .populate('category')
             ;
-        res.sendStatus(results);
+        res.send(results);
     } catch (err) {
         next(createError(500));
     }
@@ -59,7 +59,7 @@ router.get('/mine/', async function (req, res, next) {
             await el.book.populate('author').execPopulate();
             await el.book.populate('category').execPopulate();
         }
-        res.sendStatus(results);
+        res.send(results);
     } catch (err) {
         console.log(err);
         next(createError(500));
@@ -74,7 +74,7 @@ router.get('/:id', async function (req, res, next) {
             .populate('userInfo', 'status rating -_id')
             .populate('author')
             .populate('category');
-        res.sendStatus(results);
+        res.send(results);
     } catch (err) {
         next(createError(500));
     }
@@ -129,6 +129,7 @@ router.post('/status/:id', async function (req, res, next) {
 router.post('/', async function (req, res, next) {
     try {
         await BooksModel.create(req.body.book);
+        res.sendStatus(200);
     } catch (e) {
         next(createError(400, 'invalid book data'));
     }
