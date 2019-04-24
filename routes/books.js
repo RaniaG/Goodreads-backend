@@ -8,6 +8,14 @@ const UserBooksModel = require('../models/userBooks');
 // require('../models/test');
 
 
+/**
+ * the following two lines should be in the authentication middleware 
+ * so the abilities should be in the request along with the user
+ * */
+const getUserAbilities = require('../abilities/user');
+const Abilities = getUserAbilities();
+
+
 function getBooksQuery(filters) {
     let query = Object.keys(filters).length === 0 ? {} : { $and: [] }; //query for db
     const name = filters.name ? { $regex: `.*${filters.name}.*` } : null; //get all books which include a name
@@ -31,6 +39,8 @@ function getBooksQuery(filters) {
 router.get('/', async function (req, res, next) {
     // debugger;
     try {
+        if (Abilities.cannot('getAll', 'books'))
+            next(createError(401, 'request denied'));
         const results = await BooksModel.find(getBooksQuery(req.query), { 'rating.rateCount': 0, 'rating.rateValue': 0 })
             .populate('userInfo', 'status rating -_id')
             .populate('author')
@@ -44,9 +54,11 @@ router.get('/', async function (req, res, next) {
 
 //get logged in user's books
 router.get('/mine/', async function (req, res, next) {
-    debugger;
-    const loggedUser = { _id: '5cbf90b602d97c2f86383e2d' };
+    // debugger;
     try {
+        const loggedUser = { _id: '5cbf90b602d97c2f86383e2d' };
+        if (Abilities.cannot('getOwn', 'books'))
+            next(createError(401, 'request denied'));
         const results = await UserBooksModel.find({ user: loggedUser._id }, { book: 1, _id: 0 })
             .populate({
                 path: 'book',
@@ -69,7 +81,9 @@ router.get('/mine/', async function (req, res, next) {
 //get book by id
 router.get('/:id', async function (req, res, next) {
     try {
-        debugger;
+        if (Abilities.cannot('getById', 'books'))
+            next(createError(401, 'request denied'));
+        // debugger;
         const results = await BooksModel.findById(req.params.id, { 'rating.rateCount': 0, 'rating.rateValue': 0 })
             .populate('userInfo', 'status rating -_id')
             .populate('author')
@@ -83,10 +97,12 @@ router.get('/:id', async function (req, res, next) {
 //rate a book
 router.post('/rate/:id', async function (req, res, next) {
     //user can also change his previous rating through this route
-    const loggedUser = { _id: '5cbf90b602d97c2f86383e2d' };
 
     try {
-        debugger;
+        if (Abilities.cannot('rate', 'books'))
+            next(createError(401, 'request denied'));
+        // debugger;
+        const loggedUser = { _id: '5cbf90b602d97c2f86383e2d' };
         const result = await UserBooksModel.findOne({ user: loggedUser._id, book: req.params.id });
         let updatedBook;
         //check if first time rating for this book
@@ -110,9 +126,11 @@ router.post('/rate/:id', async function (req, res, next) {
 //change book status
 router.post('/status/:id', async function (req, res, next) {
     debugger;
-    const loggedUser = { _id: '5cbf90b602d97c2f86383e2d' };
 
     try {
+        if (Abilities.cannot('updateStatus', 'books'))
+            next(createError(401, 'request denied'));
+        const loggedUser = { _id: '5cbf90b602d97c2f86383e2d' };
         const userBook = await UserBooksModel.findOne({ user: loggedUser._id, book: req.params.id });
         if (!userBook) {
             await UserBooksModel.create({ user: loggedUser._id, book: req.params.id, status: req.body.status });
@@ -128,6 +146,8 @@ router.post('/status/:id', async function (req, res, next) {
 //add a book
 router.post('/', async function (req, res, next) {
     try {
+        if (Abilities.cannot('add', 'books'))
+            next(createError(401, 'request denied'));
         await BooksModel.create(req.body.book);
         res.sendStatus(200);
     } catch (e) {
@@ -140,6 +160,8 @@ router.post('/', async function (req, res, next) {
 router.patch('/:id', async function (req, res, next) {
     debugger;
     try {
+        if (Abilities.cannot('edit', 'books'))
+            next(createError(401, 'request denied'));
         const book = req.body;
         book.rating && delete book.rating;
         book.userInfo && delete book.userInfo;
@@ -154,6 +176,8 @@ router.patch('/:id', async function (req, res, next) {
 //delete a book
 router.delete('/:id', async function (req, res, next) {
     try {
+        if (Abilities.cannot('delete', 'books'))
+            next(createError(401, 'request denied'));
         //delete the book
         await BooksModel.findByIdAndDelete(req.params.id);
         //delete all references to it
