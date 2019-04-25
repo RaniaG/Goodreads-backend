@@ -1,5 +1,6 @@
 
 const mongoose = require('mongoose');
+const mongooseHidden = require('mongoose-hidden')();
 
 const bookSchema = new mongoose.Schema({
     name: {
@@ -8,19 +9,20 @@ const bookSchema = new mongoose.Schema({
         min: 3,
         max: 20
     },
-    authorId: {
+    author: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
         ref: 'author'
     },
-    categoryId: {
+    category: {
         type: mongoose.Schema.Types.ObjectId,
-        // required: true,
+        required: true,
         ref: 'category'
     },
     creationDate: {
         type: Date,
-        default: Date.now
+        default: Date.now,
+        hide: true
     },
     publishDate: {
         type: Date,
@@ -28,11 +30,21 @@ const bookSchema = new mongoose.Schema({
     },
     userInfo: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'userBooks'
+        ref: 'userBooks',
     }
-    , usersRatings: [Number]
+    , rating: {
+        rateCount: {
+            type: Number
+        },
+        rateValue: {
+            type: Number
+        },
+        rateAverage: {
+            type: Number
+        }
+    }
 })
-
+bookSchema.plugin(mongooseHidden, { hidden: { _id: false } });
 const bookModel = mongoose.model("books", bookSchema);
 
 module.exports = bookModel;
