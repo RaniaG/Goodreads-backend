@@ -5,12 +5,14 @@ var logger = require('morgan');
 const createError = require('http-errors');
 var cors = require('cors')
 require('./db');
+require('./CreateAndPopulateDB');
+const Authorization = require('./middlewares/Authorization');
 
 
 
-// var indexRouter = require('./routes/index');
+
 var usersRouter = require('./routes/users');
-// var adminRouter = require('./routes/admin');
+var adminRouter = require('./routes/admin');
 var authorsRouter = require('./routes/authors');
 var booksRouter = require('./routes/books');
 var categoriesRouter = require('./routes/categories');
@@ -25,11 +27,11 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// app.use('/', indexRouter);
 
 
+app.use('/admin', adminRouter);
 app.use('/users', usersRouter);
-// app.use('/admin', adminRouter);
+app.use(Authorization);
 app.use('/categories', categoriesRouter);
 app.use('/books', booksRouter);
 app.use('/authors', authorsRouter);
@@ -37,11 +39,12 @@ app.use('/authors', authorsRouter);
 app.use((req, res, next) => {
     //route not found
     debugger;
-    next(createError(404, 'Page not found'));
+    next(createError(404, 'Request not found'));
 })
 
 
 app.use((err, req, res, next) => {
+    debugger;
     res.status(err.status || 500);
     res.send(err);
 });

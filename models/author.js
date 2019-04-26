@@ -11,6 +11,9 @@ var authorSchema = new Schema({
     dateOfBirth: {
         type: Date,
     },
+    photoURL: {
+        type: String
+    },
     category: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,

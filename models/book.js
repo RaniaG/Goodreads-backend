@@ -24,6 +24,9 @@ const bookSchema = new mongoose.Schema({
         default: Date.now,
         hide: true
     },
+    photoURL: {
+        type: String
+    },
     publishDate: {
         type: Date,
         // required: true

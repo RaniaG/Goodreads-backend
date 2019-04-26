@@ -12,7 +12,7 @@ function defineAbilityForUser() {
     can(['getAll'], 'category');
     cannot(['delete', 'add', 'update'], 'category');
 
-    can(['getInfo', 'update', 'updatePassword', 'updatePhoto', 'delete', 'create'], 'user');
+    can(['getInfo', 'update', 'updatePassword', 'updatePhoto', 'delete', 'create', 'getPhoto'], 'user');
 
     return new Ability(rules)
 }

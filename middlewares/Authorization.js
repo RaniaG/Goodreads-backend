@@ -1,26 +1,34 @@
 
 const createError = require('http-errors');
+const adminModel = require('../models/admin');
 const userModel = require('../models/user');
 
+const getAdminAbilities = require('../abilities/admin');
 const getUserAbilities = require('../abilities/user');
 
+
 module.exports = async (req, res, next) => {
+    // debugger;
     try {
-        //check if the user sent token
+        //check if the admin sent token
         if (!req.headers.authorization)
             return next(createError(401));
         // don't forget router.use(userAuthorization) in router/user
 
         //check if token is valid 
         const [, token] = req.headers.authorization.split(' ');
-        // retrieve user 
+        // retrieve admin  or user
+        const admin = await adminModel.verifyToken(token);
         const user = await userModel.verifyToken(token);
-        if (!user) next(createError(401));
+        let authUser = admin || user;
+        if (!authUser)
+            next(createError(401));
 
-        // attach current user to request 
-        req.user = user;
-        //attach abilities to user
-        req.user.Abilities = getUserAbilities();
+        // attach current authorized user to request 
+        req.user = authUser;
+
+        req.user.Abilities = admin ? getAdminAbilities() : getUserAbilities();
+
         // call next
         next();
     } catch (err) {

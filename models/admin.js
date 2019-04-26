@@ -49,7 +49,7 @@ adminSchema.method('generateToken', function () {
 
 adminSchema.static('verifyToken', async function (token) {
     const decoded = await verifyToken(token, secretKey);
-    const id = decoded._id;
+    const id = decoded.id;
     return this.findById(id);
 })
 

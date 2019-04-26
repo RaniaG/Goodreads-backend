@@ -4,16 +4,11 @@ const createError = require('http-errors');
 
 const BooksModel = require('../models/book');
 const UserBooksModel = require('../models/userBooks');
+const UserModel = require('../models/user');
 
-// require('../models/test');
 
 
-/**
- * the following two lines should be in the authentication middleware 
- * so the abilities should be in the request along with the user
- * */
-const getUserAbilities = require('../abilities/user');
-const Abilities = getUserAbilities();
+
 
 
 function getBooksQuery(filters) {
@@ -37,10 +32,11 @@ function getBooksQuery(filters) {
 
 //get all books with filters
 router.get('/', async function (req, res, next) {
-    // debugger;
+    debugger;
     try {
-        if (Abilities.cannot('getAll', 'books'))
-            next(createError(401, 'request denied'));
+        const user = req.user;
+        if (user.Abilities.cannot('getAll', 'books'))
+            return next(createError(401, 'request denied'));
         const results = await BooksModel.find(getBooksQuery(req.query), { 'rating.rateCount': 0, 'rating.rateValue': 0 })
             .populate('userInfo', 'status rating -_id')
             .populate('author')
@@ -56,20 +52,21 @@ router.get('/', async function (req, res, next) {
 router.get('/mine/', async function (req, res, next) {
     // debugger;
     try {
-        const loggedUser = { _id: '5cbf90b602d97c2f86383e2d' };
-        if (Abilities.cannot('getOwn', 'books'))
-            next(createError(401, 'request denied'));
+        const loggedUser = req.user;
+        if (loggedUser.Abilities.cannot('getOwn', 'books'))
+            return next(createError(401, 'request denied'));
         const results = await UserBooksModel.find({ user: loggedUser._id }, { book: 1, _id: 0 })
             .populate({
                 path: 'book',
                 match: getBooksQuery(req.query),
                 // select: 'name -_id',
             });
-        debugger;
         for (const el of results) {
             debugger;
             await el.book.populate('author').execPopulate();
             await el.book.populate('category').execPopulate();
+            await el.book.populate('userInfo', 'status rating -_id').execPopulate();
+
         }
         res.send(results);
     } catch (err) {
@@ -81,8 +78,9 @@ router.get('/mine/', async function (req, res, next) {
 //get book by id
 router.get('/:id', async function (req, res, next) {
     try {
-        if (Abilities.cannot('getById', 'books'))
-            next(createError(401, 'request denied'));
+        const loggedUser = req.user;
+        if (loggedUser.Abilities.cannot('getById', 'books'))
+            return next(createError(401, 'request denied'));
         // debugger;
         const results = await BooksModel.findById(req.params.id, { 'rating.rateCount': 0, 'rating.rateValue': 0 })
             .populate('userInfo', 'status rating -_id')
@@ -98,11 +96,11 @@ router.get('/:id', async function (req, res, next) {
 router.post('/rate/:id', async function (req, res, next) {
     //user can also change his previous rating through this route
 
+    debugger;
     try {
-        if (Abilities.cannot('rate', 'books'))
-            next(createError(401, 'request denied'));
-        // debugger;
-        const loggedUser = { _id: '5cbf90b602d97c2f86383e2d' };
+        const loggedUser = req.user;
+        if (loggedUser.Abilities.cannot('rate', 'books'))
+            return next(createError(401, 'request denied'));
         const result = await UserBooksModel.findOne({ user: loggedUser._id, book: req.params.id });
         let updatedBook;
         //check if first time rating for this book
@@ -112,11 +110,11 @@ router.post('/rate/:id', async function (req, res, next) {
 
         updatedBook = await BooksModel.findByIdAndUpdate(req.params.id, ratingQuery, { useFindAndModify: false, runValidators: true, new: true });
 
-        await UserBooksModel.findOneAndUpdate({ user: loggedUser._id, book: req.params.id }, { rating: req.body.rating }, { upsert: true, new: true });
+        const userBook = await UserBooksModel.findOneAndUpdate({ user: loggedUser._id, book: req.params.id }, { rating: req.body.rating }, { upsert: true, new: true });
 
         //calculate average
-        await BooksModel.findByIdAndUpdate(req.params.id, { "rating.rateAverage": updatedBook.rating.rateValue / updatedBook.rating.rateCount }, { useFindAndModify: false, runValidators: true });
-
+        await BooksModel.findByIdAndUpdate(req.params.id,
+            { "rating.rateAverage": updatedBook.rating.rateValue / updatedBook.rating.rateCount, userInfo: userBook._id }, { useFindAndModify: false, runValidators: true });
         res.sendStatus(200);
     } catch (err) {
         next(createError(500));
@@ -125,18 +123,18 @@ router.post('/rate/:id', async function (req, res, next) {
 
 //change book status
 router.post('/status/:id', async function (req, res, next) {
-    debugger;
 
     try {
-        if (Abilities.cannot('updateStatus', 'books'))
-            next(createError(401, 'request denied'));
-        const loggedUser = { _id: '5cbf90b602d97c2f86383e2d' };
+        const loggedUser = req.user;
+        if (loggedUser.Abilities.cannot('updateStatus', 'books'))
+            return next(createError(401, 'request denied'));
         const userBook = await UserBooksModel.findOne({ user: loggedUser._id, book: req.params.id });
         if (!userBook) {
-            await UserBooksModel.create({ user: loggedUser._id, book: req.params.id, status: req.body.status });
+            userBook = await UserBooksModel.create({ user: loggedUser._id, book: req.params.id, status: req.body.status });
         } else {
             await UserBooksModel.findByIdAndUpdate(userBook._id, { status: req.body.status }, { useFindAndModify: false, runValidators: true });
         }
+        await BooksModel.findByIdAndUpdate(req.params.id, { userInfo: userBook._id }, { useFindAndModify: false, runValidators: true });
         res.sendStatus(200);
     } catch (e) {
         next(createError(500));
@@ -146,9 +144,10 @@ router.post('/status/:id', async function (req, res, next) {
 //add a book
 router.post('/', async function (req, res, next) {
     try {
-        if (Abilities.cannot('add', 'books'))
-            next(createError(401, 'request denied'));
-        await BooksModel.create(req.body.book);
+        const loggedUser = req.user;
+        if (loggedUser.Abilities.cannot('add', 'books'))
+            return next(createError(401, 'request denied'));
+        await BooksModel.create(req.body);
         res.sendStatus(200);
     } catch (e) {
         next(createError(400, 'invalid book data'));
@@ -160,8 +159,9 @@ router.post('/', async function (req, res, next) {
 router.patch('/:id', async function (req, res, next) {
     debugger;
     try {
-        if (Abilities.cannot('edit', 'books'))
-            next(createError(401, 'request denied'));
+        const loggedUser = req.user;
+        if (loggedUser.Abilities.cannot('update', 'books'))
+            return next(createError(401, 'request denied'));
         const book = req.body;
         book.rating && delete book.rating;
         book.userInfo && delete book.userInfo;
@@ -176,8 +176,9 @@ router.patch('/:id', async function (req, res, next) {
 //delete a book
 router.delete('/:id', async function (req, res, next) {
     try {
-        if (Abilities.cannot('delete', 'books'))
-            next(createError(401, 'request denied'));
+        const loggedUser = req.user;
+        if (loggedUser.Abilities.cannot('delete', 'books'))
+            return next(createError(401, 'request denied'));
         //delete the book
         await BooksModel.findByIdAndDelete(req.params.id);
         //delete all references to it
