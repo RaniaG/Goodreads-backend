@@ -11,7 +11,7 @@ var authorSchema = new Schema({
     dateOfBirth: {
         type: Date,
     },
-    categoryId: {
+    category: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
         ref: 'category'
@@ -19,11 +19,6 @@ var authorSchema = new Schema({
     dateOfCreation: {
         type: Date,
         default: Date.now
-    },
-    usersRatings: [Number],
-    rating: {
-        type: Number,
-        max: 5
     }
 });
 module.exports = mongoose.model('author', authorSchema);
