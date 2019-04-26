@@ -10,7 +10,7 @@ const chategorySchema = new mongoose.Schema({
     dateOfCreation: {
         type: Date,
         default: Date.now,
-        required: true
+        // required: true
     }
 });
 
