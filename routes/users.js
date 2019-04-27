@@ -12,18 +12,17 @@ const Authorization = require('../middlewares/Authorization');
 
 //sign up
 router.post('/', upload.single('photo'), async function (req, res, next) {
-  debugger;
   try {
     const user = await UserModel.create({ ...req.body, photo: req.file ? { url: req.file.path, encoding: req.file.mimetype } : null });
     const token = await user.generateToken();
     res.send(token);
   } catch (e) {
-    next(createError(400, 'invalid user data'));
+    next(createError(400, e));
   }
 });
 
 router.post('/login/', async function (req, res, next) {
-  debugger;
+  // debugger;
   try {
     const user = await UserModel.findOne({ email: req.body.email });
     if (!await user.verifyPassword(req.body.password)) throw 'error';
@@ -82,12 +81,15 @@ router.get('/photo', async function (req, res, next) {
 //update user photo
 router.patch('/photo', upload.single('photo'), async function (req, res, next) {
   //havent tested this route yet
-
+  //must delete old photo first
   try {
     const loggedUser = req.user;
     if (loggedUser.Abilities.cannot('updatePhoto', 'user'))
       return next(createError(401, 'request denied'));
     const photo = { url: req.file.path, encoding: req.file.mimetype };
+    fs.unlink(loggedUser.photo.url, (err) => { //remove the old file
+      if (err) throw err;
+    });
     await UserModel.findByIdAndUpdate(loggedUser._id, photo, { useFindAndModify: false, runValidators: true });
     res.sendStatus(200);
   } catch (err) {
