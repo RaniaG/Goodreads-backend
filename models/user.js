@@ -19,14 +19,8 @@ const userSchema = new mongoose.Schema({
         minlength: 2
     },
     photo: {
-        url: {
-            type: String,
-            // required: true
-        },
-        encoding: {
-            type: String,
-            // required: true
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'image'
     },
     email: {
         type: String,
@@ -65,7 +59,7 @@ userSchema.method('generateToken', function () {
 })
 userSchema.static('verifyToken', async function (token) {
     const user = await jwtVerifyPromise(token, jwtKey);
-    return this.findById(user.id);
+    return this.findById(user.id).populate('photo');
 })
 
 userSchema.plugin(mongooseHidden, { hidden: { _id: false } }); //to send user id

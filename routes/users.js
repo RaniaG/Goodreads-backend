@@ -6,6 +6,7 @@ const fs = require('fs');
 var path = require('path');
 
 const UserModel = require('../models/user');
+const ImageModel = require('../models/image');
 const upload = multer({ dest: 'assets/photos/profile/' });
 const Authorization = require('../middlewares/Authorization');
 
@@ -13,14 +14,26 @@ const Authorization = require('../middlewares/Authorization');
 //sign up
 router.post('/', upload.single('photo'), async function (req, res, next) {
   try {
-    const user = await UserModel.create({ ...req.body, photo: req.file ? { url: req.file.path, encoding: req.file.mimetype } : null });
+    let addedImage;
+    if (req.file) //user added an image
+    {
+      const photo = {};
+      photo.data = fs.readFileSync(req.file.path);
+      photo.contentType = req.file.mimetype;
+      //add it to db
+      addedImage = await ImageModel.create(photo);
+    }
+    const user = await UserModel.create({ ...req.body, photo: req.file ? addedImage._id : null });
     const token = await user.generateToken();
+    //remove the created file on disk
+    req.file && fs.unlink(req.file.path, (err) => {
+    });
     res.send(token);
   } catch (e) {
     next(createError(400, e));
   }
 });
-
+/** login */
 router.post('/login/', async function (req, res, next) {
   // debugger;
   try {
@@ -43,7 +56,6 @@ router.get('/', async (req, res, next) => {
     const loggedUser = req.user;
     if (loggedUser.Abilities.cannot('getInfo', 'user'))
       return next(createError(401, 'request denied'));
-    // const user = await UserModel.findById(req.loggedUser.id);
     res.send(loggedUser);
   }
   catch (e) {
@@ -51,50 +63,34 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-//get user photo
-router.get('/photo', async function (req, res, next) {
-  const loggedUser = req.user;
-  if (loggedUser.Abilities.cannot('getPhoto', 'user'))
-    return next(createError(401, 'request denied'));
-  debugger;
-  const { photo } = loggedUser;
-  fs.readFile(photo.path, (err, data) => {
-    debugger;
-    if (err) {
-      //fall back image
-      fs.readFile(path.join('assets/photos/profile/', 'index.png'), (err, data) => {
-        debugger;
-        if (err) {
-          next(createError(500));
-        }
-        res.setHeader('Content-Type', 'image/png; charset=utf-8');
-        res.send(data);
-      });
-    }
-    else {
-      res.setHeader('Content-Type', `${userPhoto.encoding}; charset=utf-8`);
-      res.send(data);
-    }
-  });
-})
 
 //update user photo
 router.patch('/photo', upload.single('photo'), async function (req, res, next) {
-  //havent tested this route yet
-  //must delete old photo first
   try {
     const loggedUser = req.user;
     if (loggedUser.Abilities.cannot('updatePhoto', 'user'))
       return next(createError(401, 'request denied'));
-    const photo = { url: req.file.path, encoding: req.file.mimetype };
-    fs.unlink(loggedUser.photo.url, (err) => { //remove the old file
-      if (err) throw err;
+
+    const photo = {};
+    photo.data = fs.readFileSync(req.file.path);
+    photo.contentType = req.file.mimetype;
+    if (loggedUser.photo === null) //user doesnt have photo
+    {
+      //add it to db
+      const addedImage = await ImageModel.create(photo);
+      loggedUser.photo = addedImage._id;
+      loggedUser.save();
+    } else {//user want to change photo
+      await ImageModel.findByIdAndUpdate(loggedUser.photo, photo, { useFindAndModify: false });
+    }
+    //remove the created file on disk
+    req.file && fs.unlink(req.file.path, (err) => {
     });
-    await UserModel.findByIdAndUpdate(loggedUser._id, photo, { useFindAndModify: false, runValidators: true });
     res.sendStatus(200);
-  } catch (err) {
-    next(createError(400));
+  } catch (e) {
+    next(createError(400, e));
   }
+
 })
 
 
@@ -123,7 +119,8 @@ router.patch('/', async (req, res, next) => {
     if (loggedUser.Abilities.cannot('update', 'user'))
       return next(createError(401, 'request denied'));
     delete req.body.password; //to prevent changing of password except through pass route 
-    await UserModel.updateOne({ _id: req.user._id }, req.body);
+    delete req.body.photo; //to prevent changing of photo 
+    await UserModel.updateOne({ _id: req.user._id }, req.body, { runValidators: true });
     res.sendStatus(202);
   }
   catch (e) {

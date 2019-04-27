@@ -38,7 +38,7 @@ router.get('/', async function (req, res, next) {
         if (user.Abilities.cannot('getAll', 'books'))
             return next(createError(401, 'request denied'));
         const results = await BooksModel.find(getBooksQuery(req.query), { 'rating.rateCount': 0, 'rating.rateValue': 0 })
-            .populate('userInfo', 'status rating -_id')
+            .populate('userInfo', 'status rating -_id')//
             .populate('author')
             .populate('category')
             ;
