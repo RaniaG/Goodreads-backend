@@ -26,7 +26,7 @@ module.exports = async (req, res, next) => {
 
         // attach current authorized user to request 
         req.user = authUser;
-
+        req.user.type = admin ? 'admin' : 'user';
         req.user.Abilities = admin ? getAdminAbilities() : getUserAbilities();
 
         // call next

@@ -1,6 +1,7 @@
 
 const mongoose = require('mongoose');
 const mongooseHidden = require('mongoose-hidden')();
+var mongoosePaginate = require('mongoose-paginate');
 
 const bookSchema = new mongoose.Schema({
     name: {
@@ -31,9 +32,13 @@ const bookSchema = new mongoose.Schema({
         type: Date,
         // required: true
     },
-    userInfo: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'userBooks',
+    userInfo: { //must be added so that it shows up in the sent request
+        rating: {
+            type: Number
+        },
+        status: {
+            type: Number
+        }
     }
     , rating: {
         rateCount: {
@@ -48,6 +53,7 @@ const bookSchema = new mongoose.Schema({
     }
 })
 bookSchema.plugin(mongooseHidden, { hidden: { _id: false } });
+bookSchema.plugin(mongoosePaginate);
 const bookModel = mongoose.model("books", bookSchema);
 
 module.exports = bookModel;

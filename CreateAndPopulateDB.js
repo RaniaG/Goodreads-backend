@@ -7,4 +7,4 @@ const AdminModel = require('./models/admin');
 
 
 //comment the next line
-AdminModel.create({ name: "admin", username: "admin", password: "1234_abc%AVC" });
+// AdminModel.create({ name: "admin", username: "admin", password: "1234_abc%AVC" });

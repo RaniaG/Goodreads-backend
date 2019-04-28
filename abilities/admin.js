@@ -4,7 +4,7 @@ function defineAbilityForAdmin() {
     const { rules, can, cannot } = AbilityBuilder.extract()
 
     can(['delete', 'add', 'update', 'getAll'], 'books');
-    cannot(['rate', 'updateStatus', 'getById'], 'books');
+    cannot(['rate', 'updateStatus', 'getById', 'getOwn'], 'books');
 
     can(['delete', 'add', 'update', 'getAll'], 'author');
     cannot('getById', 'author');

@@ -26,49 +26,94 @@ function getBooksQuery(filters) {
         delete filters.rating; //so that it wont be added again to query array
     }
     name && query.$and.push({ name }); //set name query if it exsts
-    !Object.keys(filters).length === 0 && query.$and.push([filters]); //for author and category filters
+    //for author and category filters
+    if (Object.keys(filters).length > 0) {
+        for (const key in filters) {
+            if (filters.hasOwnProperty(key)) {
+                query.$and.push({ [key]: filters[key] });
+            }
+        }
+    }
     return query;
 }
 
 //get all books with filters
-router.get('/', async function (req, res, next) {
-    debugger;
+router.get('/:page', async function (req, res, next) {
     try {
         const user = req.user;
+        //verify the user ability
         if (user.Abilities.cannot('getAll', 'books'))
             return next(createError(401, 'request denied'));
-        const results = await BooksModel.find(getBooksQuery(req.query), { 'rating.rateCount': 0, 'rating.rateValue': 0 })
-            .populate('userInfo', 'status rating -_id')//
-            .populate('author')
-            .populate('category')
-            ;
-        res.send(results);
+
+        //remove book status from query because book status is not in the books model
+        let status = null;
+        if (req.query.status) {
+            status = +req.query.status;
+            delete req.query.status;
+        }
+
+        //form a query from the filters
+        const query = getBooksQuery(req.query);
+        //pagination
+        BooksModel.paginate(query, {
+            select: '-rating.rateCount -rating.rateValue', //exclude these fields
+            limit: 9,
+            page: +req.params.page,
+        }, async (err, result) => {
+            if (err)
+                return next(createError(400));
+
+            //populate author and category for each book
+            for (const el of result.docs) {
+                await el.populate('author').execPopulate();
+                await el.populate('category').execPopulate();
+            }
+            let books = result.docs
+            if (user.type === 'user') {
+                //populate the status for each book if its a user
+                for (const e of result.docs) {
+                    const userBook = await UserBooksModel.findOne({ user: user._id, book: e._id });
+                    if (userBook)
+                        e.userInfo = { rating: userBook.rating, status: userBook.status };
+                }
+                if (status) //filter based on status
+                    books = result.docs.filter(e => {
+                        return e.userInfo.status === status;
+                    });
+            }
+            res.send({ ...result, docs: books });
+        })
     } catch (err) {
         next(createError(500));
     }
 });
 
 //get logged in user's books
-router.get('/mine/', async function (req, res, next) {
+router.get('/mine/:page', async function (req, res, next) {
     // debugger;
     try {
         const loggedUser = req.user;
         if (loggedUser.Abilities.cannot('getOwn', 'books'))
             return next(createError(401, 'request denied'));
-        const results = await UserBooksModel.find({ user: loggedUser._id }, { book: 1, _id: 0 })
-            .populate({
-                path: 'book',
-                match: getBooksQuery(req.query),
-                // select: 'name -_id',
-            });
-        for (const el of results) {
-            debugger;
-            await el.book.populate('author').execPopulate();
-            await el.book.populate('category').execPopulate();
-            await el.book.populate('userInfo', 'status rating -_id').execPopulate();
 
-        }
-        res.send(results);
+        UserBooksModel.paginate({ user: loggedUser._id }, {
+            select: 'book status rating -_id',
+            limit: 9,
+            page: +req.params.page,
+        }, async function (err, result) {
+            if (err)
+                next(createError(400));
+
+
+            //populate book, author and category
+            for (const el of result.docs) {
+                await el.populate('book').execPopulate();
+                await el.book.populate('author').execPopulate();
+                await el.book.populate('category').execPopulate();
+            }
+
+            res.send(result);
+        })
     } catch (err) {
         console.log(err);
         next(createError(500));
@@ -83,9 +128,12 @@ router.get('/:id', async function (req, res, next) {
             return next(createError(401, 'request denied'));
         // debugger;
         const results = await BooksModel.findById(req.params.id, { 'rating.rateCount': 0, 'rating.rateValue': 0 })
-            .populate('userInfo', 'status rating -_id')
             .populate('author')
             .populate('category');
+        //populate status and rating
+        const userBook = await UserBooksModel.findOne({ user: loggedUser._id, book: req.params.id });
+        if (userBook)
+            e.userInfo = { rating: userBook.rating, status: userBook.status };
         res.send(results);
     } catch (err) {
         next(createError(500));
@@ -104,17 +152,18 @@ router.post('/rate/:id', async function (req, res, next) {
         const result = await UserBooksModel.findOne({ user: loggedUser._id, book: req.params.id });
         let updatedBook;
         //check if first time rating for this book
+        const rate = +req.body.rating;
         const ratingQuery = !result || !result.rating ?
-            { $inc: { "rating.rateCount": 1, "rating.rateValue": +req.body.rating } } //first time rating
-            : { $inc: { "rating.rateValue": (+req.body.rating) - result.rating } }; //update rating
+            { $inc: { "rating.rateCount": 1, "rating.rateValue": rate } } //first time rating
+            : { $inc: { "rating.rateValue": (rate) - result.rating } }; //update rating
 
         updatedBook = await BooksModel.findByIdAndUpdate(req.params.id, ratingQuery, { useFindAndModify: false, runValidators: true, new: true });
 
-        const userBook = await UserBooksModel.findOneAndUpdate({ user: loggedUser._id, book: req.params.id }, { rating: req.body.rating }, { upsert: true, new: true });
+        await UserBooksModel.findOneAndUpdate({ user: loggedUser._id, book: req.params.id }, { rating: rate }, { upsert: true, new: true });
 
         //calculate average
         await BooksModel.findByIdAndUpdate(req.params.id,
-            { "rating.rateAverage": updatedBook.rating.rateValue / updatedBook.rating.rateCount, userInfo: userBook._id }, { useFindAndModify: false, runValidators: true });
+            { "rating.rateAverage": updatedBook.rating.rateValue / updatedBook.rating.rateCount }, { useFindAndModify: false, runValidators: true });
         res.sendStatus(200);
     } catch (err) {
         next(createError(500));
@@ -130,11 +179,10 @@ router.post('/status/:id', async function (req, res, next) {
             return next(createError(401, 'request denied'));
         const userBook = await UserBooksModel.findOne({ user: loggedUser._id, book: req.params.id });
         if (!userBook) {
-            userBook = await UserBooksModel.create({ user: loggedUser._id, book: req.params.id, status: req.body.status });
+            await UserBooksModel.create({ user: loggedUser._id, book: req.params.id, status: +req.body.status });
         } else {
             await UserBooksModel.findByIdAndUpdate(userBook._id, { status: req.body.status }, { useFindAndModify: false, runValidators: true });
         }
-        await BooksModel.findByIdAndUpdate(req.params.id, { userInfo: userBook._id }, { useFindAndModify: false, runValidators: true });
         res.sendStatus(200);
     } catch (e) {
         next(createError(500));

@@ -1,6 +1,8 @@
 
 const mongoose = require('mongoose');
 var integerValidator = require('mongoose-integer');
+var mongoosePaginate = require('mongoose-paginate');
+
 
 const userBooksSchema = new mongoose.Schema({
     user: {
@@ -15,7 +17,6 @@ const userBooksSchema = new mongoose.Schema({
     },
     status: {
         type: Number,
-        enum: [0, 1, 2, 3],
         min: 0,
         max: 3,
         integer: true
@@ -29,6 +30,8 @@ const userBooksSchema = new mongoose.Schema({
 })
 userBooksSchema.index({ user: 1, book: 1 }, { unique: true });
 userBooksSchema.plugin(integerValidator);
+userBooksSchema.plugin(mongoosePaginate);
+
 const userBooksModel = mongoose.model("userBooks", userBooksSchema);
 
 module.exports = userBooksModel;
